@@ -44,4 +44,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/paytrack:${{ steps.image.outputs.tag }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/pay-tracking:${{ steps.image.outputs.tag }}
