@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PayTrack | Payment Tracker</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#172033;background:#f4f7fb}
+*{box-sizing:border-box}body{margin:0}header{background:#14213d;color:white;padding:24px max(20px,calc((100% - 1100px)/2))}
+header h1{margin:0 0 6px;font-size:28px}header p{margin:0;color:#d7e2f5}
+main{max-width:1100px;margin:26px auto;padding:0 18px}.banner{padding:12px 15px;border-radius:10px;background:#fff5d9;color:#654d00;margin-bottom:18px;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.card{background:white;border:1px solid #e0e7f0;border-radius:14px;padding:18px;box-shadow:0 3px 12px #182b4910}
+.label{font-size:13px;color:#64748b}.value{font-size:27px;font-weight:750;margin-top:8px}
+.layout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:18px}
+h2{font-size:18px;margin:0 0 16px}label{display:block;font-size:13px;font-weight:650;margin:12px 0 6px}
+input,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+button{border:0;border-radius:8px;background:#2463eb;color:white;padding:11px 14px;font:inherit;font-weight:700;cursor:pointer}
+.form button{width:100%;margin-top:16px}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px;min-width:600px}
+th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #edf1f6}th{color:#64748b;font-weight:650}
+.pill{border-radius:99px;padding:5px 9px;font-size:11px;font-weight:750;text-transform:uppercase}
+.pending{background:#fff0c2;color:#805b00}.completed{background:#d9fbe8;color:#11643a}.failed{background:#ffe0e0;color:#a21d1d}
+.muted{color:#64748b;font-size:13px}.message{margin-top:12px;font-size:13px;min-height:18px}
+@media(max-width:760px){.layout,.stats{grid-template-columns:1fr}.value{font-size:23px}}
+</style></head>
+<body><header><h1>PayTrack</h1><p>Payment tracking dashboard · Demo environment</p></header>
+<main>
+<div class="banner"><strong>Demo only:</strong> This app records sample payment information. It does not process payments or move money.</div>
+<section class="stats">
+<div class="card"><div class="label">Total records</div><div class="value" id="total">—</div></div>
+<div class="card"><div class="label">Completed</div><div class="value" id="completed">—</div></div>
+<div class="card"><div class="label">Pending</div><div class="value" id="pending">—</div></div>
+</section>
+<section class="layout">
+<div class="card form"><h2>Record a payment</h2><form id="payment-form">
+<label for="customer">Customer name</label><input id="customer" required maxlength="120" placeholder="e.g. Ada Demo">
+<label for="amount">Amount</label><input id="amount" required type="number" min="0.01" step="0.01" placeholder="12500">
+<label for="currency">Currency</label><select id="currency"><option>NGN</option><option>USD</option><option>GBP</option><option>EUR</option></select>
+<label for="reference">Payment reference</label><input id="reference" required maxlength="80" placeholder="PAY-DEMO-001">
+<button type="submit">Save payment record</button><div class="message" id="message" role="status" aria-live="polite"></div>
+</form></div>
+<div class="card"><h2>Payment history</h2><p class="muted">Status changes are sent to the background queue.</p>
+<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Status</th><th>Update status</th></tr></thead><tbody id="payments"><tr><td colspan="5">Loading records…</td></tr></tbody></table></div><p class="muted" id="load-state"></p></div>
+</section></main>
+<script>
+const fmt=(amount,currency)=>new Intl.NumberFormat("en-NG",{style:"currency",currency,maximumFractionDigits:2}).format(amount);
+async function api(path,options={}){const r=await fetch(path,{headers:{"Content-Type":"application/json"},...options});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||`Request failed (${r.status})`);return b}
+async function refresh(){
+ const state=document.getElementById("load-state");
+ try{
+  const items=await api("/api/payments");
+  document.getElementById("total").textContent=items.length;
+  document.getElementById("completed").textContent=items.filter(p=>p.status==="completed").length;
+  document.getElementById("pending").textContent=items.filter(p=>p.status==="pending").length;
+  const tbody=document.getElementById("payments");tbody.replaceChildren();
+  if(!items.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=5;td.textContent="No payment records yet.";tr.append(td);tbody.append(tr)}
+  for(const p of items){
+   const tr=document.createElement("tr");
+   [p.reference,p.customer_name,fmt(p.amount,p.currency)].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td)});
+   const st=document.createElement("td"),pill=document.createElement("span");pill.className=`pill ${p.status}`;pill.textContent=p.status;st.append(pill);tr.append(st);
+   const at=document.createElement("td"),sel=document.createElement("select");sel.setAttribute("aria-label",`Change status for ${p.reference}`);
+   ["pending","completed","failed"].forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=s;o.selected=s===p.status;sel.append(o)});
+   sel.addEventListener("change",async()=>{try{await api(`/api/payments/${p.id}/status`,{method:"PATCH",body:JSON.stringify({status:sel.value})});await refresh()}catch(e){alert(e.message);refresh()}});
+   at.append(sel);tr.append(at);tbody.append(tr);
+  }
+  state.textContent=`Loaded ${items.length} record(s).`;
+ }catch(e){state.textContent=`Could not load payments: ${e.message}`}
+}
+document.getElementById("payment-form").addEventListener("submit",async e=>{
+ e.preventDefault();const msg=document.getElementById("message");msg.textContent="Saving…";
+ const data={customer_name:document.getElementById("customer").value,amount:Number(document.getElementById("amount").value),currency:document.getElementById("currency").value,reference:document.getElementById("reference").value};
+ try{await api("/api/payments",{method:"POST",body:JSON.stringify(data)});e.target.reset();msg.textContent="Payment record saved.";await refresh()}catch(err){msg.textContent=err.message}
+});
+refresh();
+</script></body></html>
