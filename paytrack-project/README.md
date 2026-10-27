@@ -27,7 +27,7 @@ curl -X POST http://localhost:8080/api/payments -H "Content-Type: application/js
 ```
 
 ## Cloud engineer notes
-- CI workflow tests and builds images; it does not deploy.
+- CI workflow tests and builds images; it does not deploy automatically.
 - `.github/workflows/deploy.yml.example` is a template, not an active workflow. Review and configure it before use.
 - The AWS template assumes EC2 has Docker, Git, SSM Agent, an appropriate instance role, and a checkout at `/opt/paytrack`. Its deployment process needs review and testing.
 - No authentication, TLS, production secrets handling, or payment gateway is included. Do not expose this starter publicly with real or sensitive data.
