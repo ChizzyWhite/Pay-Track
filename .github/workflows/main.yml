@@ -39,7 +39,7 @@ jobs:
             echo "tag=staging" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push PayTrack image
+      - name: Build and push Pay-tracking image
         uses: docker/build-push-action@v6
         with:
           context: .
